@@ -29,11 +29,12 @@ class TestCharacter(CharacterEntity):
             for next in get_adjacent(current[0], wrld):
                 if wrld.wall_at(next[0], next[1]):
                     cost_so_far[(next[0], next[1])] = 999
-                    break
-                new_cost = self.manhattan_distance(next[0], next[1], ex[0], ex[1]) + cost_so_far[current[0]]
+                    new_cost = 1000
+                else:
+                    new_cost = self.cost_to(current[0], next) + cost_so_far[current[0]]
                 if next not in cost_so_far or new_cost < cost_so_far[next]:
                     cost_so_far[next] = new_cost
-                    frontier.append((next, new_cost))
+                    frontier.append((next, new_cost + self.manhattan_distance(next[0], next[1], ex[0], ex[1])))
                     came_from[next] = current[0]
                     
         
@@ -58,9 +59,18 @@ class TestCharacter(CharacterEntity):
     def manhattan_distance(self, x1, y1, x2, y2):
         return abs(x1 - x2) + abs(y1 - y2)
 
-    def heuristic(self, current, next):
+    # Prioritizes downward
+    def cost_to(self, current, next):
         diff = (next[0] - current[0], next[1] - current[1])
         val = abs(diff[0]) + abs(diff[1])
+        if val == 2:
+            return 2
+        else:
+            return 1
+
+    def heuristic(self, current, next):
+
+
         if val == 2:
             return 0
         if val == 1:
@@ -128,7 +138,6 @@ def get_adjacent(current, wrld):
             neighbors.append((x + 1, y + 1))  # bottom right
 
     return neighbors
-
 
 def printFrontier(frontier):
     for val in frontier:
