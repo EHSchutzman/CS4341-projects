@@ -101,10 +101,11 @@ class Game:
             self.display_gui()
             self.draw()
         colorama.deinit()
+        input("Press Enter to continue...")
+
 
     def step(self):
         (self.world, self.events) = self.world.next()
-        input("Press Enter to continue...")
 
     ###################
     # Private methods #
