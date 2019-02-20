@@ -111,7 +111,6 @@ class Game:
             step()
             self.display_gui()
             self.draw()
-            input("Press Enter to continue...")
         colorama.deinit()
 
     ###################
