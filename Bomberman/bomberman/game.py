@@ -93,18 +93,19 @@ class Game:
 
     def go(self):
         colorama.init(autoreset=True)
-        self.display_gui()
-        self.draw()
+        #self.display_gui()
+        #self.draw()
         while not self.done():
             self.display_gui()
             self.step()
             self.display_gui()
             self.draw()
         colorama.deinit()
+        input("Press Enter to continue...")
+
 
     def step(self):
         (self.world, self.events) = self.world.next()
-        input("Press Enter to continue...")
 
     ###################
     # Private methods #
