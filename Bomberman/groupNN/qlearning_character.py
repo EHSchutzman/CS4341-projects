@@ -1,6 +1,8 @@
 # This is necessary to find the main code
 import sys
 import operator
+import random
+import math
 
 sys.path.insert(0, '../bomberman')
 # Import necessary stuff
@@ -11,6 +13,8 @@ from colorama import Fore, Back, Style, init
 from sensed_world import SensedWorld
 from events import Event
 init(autoreset=True)
+
+gamma = 0.8
 
 class QCharacter(CharacterEntity):
 
@@ -23,47 +27,52 @@ class QCharacter(CharacterEntity):
         self.qtable = qtable
 
     def do(self, wrld):
-        #print("STATE:::::: ")
         state = calculate_state((self.x, self.y), wrld)
-        print(state)
-        self.updateQ(wrld)
-        #print("QTABLE: " + str(self.qtable))
+        self.updateQ(state, wrld)
+
         path = aStar((self.x, self.y), wrld, (7, 18))  # Removed boolean to indicate path, might be good to re-add.
-        print(path)
-        move = self.select_best_move(state)  # path[len(path) - 1]
+
+        move = self.select_best_move(state, self.valid_moves(wrld))  # path[len(path) - 1]
+
+        print(self.x, self.y)
+        print(wrld.exitcell)
+        if (self.x, self.y) == (wrld.exitcell[0], wrld.exitcell[1]):
+            print("\n\n WINNNNN \n\n")
 
         self.move(move[0] - self.x, move[1] - self.y)
         pass
 
-    def select_best_move(self, state):
-        keys = self.qtable.keys()
+    def select_best_move(self, state, moves):
         candidates = []
-        # Check all keys in table to see if they tell us what to do from current state. This is prooobably one of the
-        # reasons our code doesn't work.
-        for k in keys:
-            if state in k:
-                print("KEY FOUND: " + str(k))
-                candidates.append(state)
-        print("CAndidates:")
-        print(candidates)
+        # Construct table keys from possible moves and current state.
+        for m in moves:
+            candidates.append((state, m))
 
         m = -1000
 
-        global move
+        moves = []
 
-        for k in keys:
-            if m < self.qtable[k]:
-                m = self.qtable[k]
-                move = k[1]
-        print("Goodest move:")
-        print(move)
-        return move
+        for c in candidates:
+            print("Move, score;")
+            print(c, self.qtable[c])
+            if m < self.qtable[c]:
+                moves.clear()
+                m = self.qtable[c]
+                moves.append(c[1])
+            elif m == self.qtable[c]:
+                moves.append(c[1])
+
+        return random.choice(moves)
 
     # Updates the QTable.
-    def updateQ(self, wrld):
+    def updateQ(self, state, wrld):
         alpha = 0.3
         moves = get_adjacent((self.x, self.y), wrld)
+        keys = self.qtable.keys()
         for m in moves:
+            # if q value not initialize, initialize it to 0
+            if (state, m) not in keys:
+                self.qtable[(state, m)] = 0
             if not wrld.wall_at(m[0], m[1]):
                 sim = SensedWorld.from_world(wrld)  # creates simulated world
                 c = sim.me(self)  # finds character from simulated world
@@ -80,19 +89,27 @@ class QCharacter(CharacterEntity):
                     print(s[1][0])
                     for event in s[1]:
                         if event.tpe == Event.CHARACTER_KILLED_BY_MONSTER and event.character.name == self.name:
-                            self.qtable[calculate_state(wrld.exitcell, wrld), m] = -5
+                            self.qtable[(state, m)] = -5 + gamma * self.qtable[(state, m)]
                         elif event.tpe == Event.CHARACTER_FOUND_EXIT and event.character.name == self.name:
-                            self.qtable[("dead"), m] = -5
+                            self.qtable[(state, m)] = 5 + gamma * self.qtable[(state, m)]
                 else:
-                    print("Xcoord: " + str(c.x) + ", Ycoord: " + str(c.y))
-                    self.qtable[(calculate_state((c.x, c.y), wrld), m)] = distance_to_exit((c.x, c.y), wrld)
+                    self.qtable[(state, m)] = reward(c, wrld) + gamma * self.qtable[(state, m)]
 
     def q(self, action):
+        # shortsighted update q
         # Q(s, a) = w1*f(s, a) + w2*f(s, a) + w3*f(s, a)
         # ∆ ← [r + γ maxa Q(s, a) − Q(s, a)
         # Q(s, a) ← Q(s, a) + α∆
         # wi ← wi + α∆
         return 0
+
+    def valid_moves(self, wrld):
+        moves = get_adjacent((self.x, self.y), wrld)
+        final = []
+        for m in moves:
+            if not wrld.wall_at(m[0], m[1]):
+                final.append(m)
+        return final
 
     # Resets styling for each cell. Prevents unexpected/inconsistent behavior that otherwise appears with coloring.
     def reset_cells(self, wrld):
@@ -131,7 +148,10 @@ def cost_to(current, next):
 # Returns a vector of values representing each feature.
 # Vector structure: (bomb distance, monster distance, exit distance)
 def calculate_state(coords, wrld):
-    return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), distance_to_exit(coords, wrld)
+    return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), euclidean_distance(coords, wrld) + distance_to_exit(coords, wrld)
+                            #manhattan_distance(coords[0], coords[1], wrld.exitcell[0], wrld.exitcell[1]) +\
+
+
 
 # ==================== FEATURES ==================== #
 #   - Distance to closest bomb
@@ -160,9 +180,12 @@ def closest_monster(coords, wrld):
 # Returns 1/(A* distance to exit)^2.
 def distance_to_exit(coords, wrld):
     dist = (len(aStar(coords, wrld, wrld.exitcell)) ** 2)
-    if dist == 0:
+    if dist < 1:
         return 0
     return 1 / dist
+
+def euclidean_distance(coords, wrld):
+    return math.sqrt(((coords[0] - wrld.exitcell[0]) * coords[1] - wrld.exitcell[1]) ** 2)
 
 
 # Returns a list of tiles which are occupied by at least 1 monster.
@@ -204,6 +227,11 @@ def get_adjacent(current, wrld):
 
     return neighbors
 
+def reward(c, wrld):
+    dist = len(aStar((c.x, c.y), wrld, wrld.exitcell))
+    if dist == 0:
+        return 10
+    return 1 / (2 * dist + manhattan_distance(c.x, c.y, wrld.exitcell[0], wrld.exitcell[1]))
 
 def aStar(start, wrld, goal):
     x = start[0]

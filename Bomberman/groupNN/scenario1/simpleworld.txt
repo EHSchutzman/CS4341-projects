@@ -1,0 +1,10 @@
+max_time 10
+bomb_time 10
+expl_duration 2
+expl_range 4
++--------+
+| W     W|
+| W    WW|
+| W W    |
+|   W   E|
++--------+

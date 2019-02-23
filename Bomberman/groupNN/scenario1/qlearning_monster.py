@@ -15,13 +15,13 @@ from monsters.stupid_monster import StupidMonster
 
 qtable = {}
 
-for i in range(0, 11):
+for i in range(0, 10):
     # Create the game
     g = Game.fromfile('map.txt')
-    g.add_monster(StupidMonster("monster",  # name
-                                "M",  # avatar
-                                3, 9  # position
-                                ))
+    # g.add_monster(StupidMonster("monster",  # name
+    #                             "M",  # avatar
+    #                             3, 9  # position
+    #                             ))
     # TODO Add your character
     g.add_character(QCharacter(qtable,  # starting q table
                                "Qlearn",  # name

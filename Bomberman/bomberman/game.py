@@ -92,7 +92,7 @@ class Game:
                     self.screen.blit(self.bomb_sprite, rect)
         pygame.display.flip()
 
-    def go(self, wait=0):
+    def go(self, wait=50):
         """ Main game loop. """
 
         if wait is 0:
