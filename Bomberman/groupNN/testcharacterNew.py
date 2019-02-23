@@ -12,24 +12,30 @@ class TestCharacterNew(CharacterEntity):
     def do(self, wrld):
         self.reset_cells(wrld)
         monsters = []
+        bombs = []
         ex = wrld.exitcell
+
         for x in range(0, wrld.width()):
             for y in range(0, wrld.height()):
                 if wrld.monsters_at(x, y):  # Finds all the monsters in the board
                     monsters.append((x, y))
+                if wrld.bomb_at(x, y):
+                    bombs.append((x,y))
                     
-        # print("EXIT AT : " + str(wrld.exitcell))
-        print("Monsters AT: "+  str(monsters))
 
-        distToMon = {}
-        dx, dy, moveLen = self.aStar(wrld, ex)
+        dx, dy, moveLen, path = aStar(self, wrld, ex) # static a*
+
+        #For every monster identify the path to that monster
         for monster in monsters:
             print(monster)
-            dx, dy, length = self.aStar(wrld, monster, False)
+            dx, dy, length, path = aStar(self, wrld, monster, False)
             # print("Distance to : " + str(monster) + "  is " + str(length))
 
+        for bomb in bombs:
+            print(bomb)
+            bombDistance(self.x, self.y, bomb, wrld)
 
-        # self.move(dx,dy) 
+        self.move(dx,dy) 
 
     def calculateMove(self, wrld):
         xcoord = self.x
@@ -105,84 +111,6 @@ class TestCharacterNew(CharacterEntity):
     def distance_to_exit(self):
         return 1
 
-    def aStar(self, wrld, mapTo, toExit=True):
-        # print("Searching From " + str((self.x, self.y)))
-        # print("Searching for " + str(mapTo))
-        self.reset_cells(wrld)
-        # A*
-        frontier = []
-        frontier.append(((self.x, self.y), 0))
-        came_from = {}
-        cost_so_far = {}
-        came_from[(self.x, self.y)] = None
-        cost_so_far[(self.x, self.y)] = 0
-        move = 1
-        # print("SELFX " + str(self.x))
-        # print("SELFY " + str(self.y))
-
-        monsters = []
-        ex = (7, 18)
-        if toExit:
-            # print("In here ")
-            # Iterates through board to find monsters and exit
-            for x in range(0, wrld.width()):
-                for y in range(0, wrld.height()):
-                    if wrld.monsters_at(x, y):  # Finds all the monsters in the board
-                        monsters.append((x, y))
-                    if wrld.exit_at(x, y):  # Just in case exit is not where we expect it to be in the bottom right corner
-                        ex = (x, y)
-
-            for t in monsters:
-                self.set_cell_color(t[0], t[1], Fore.RED + Back.RED)
-
-        while not len(frontier) == 0:
-            frontier.sort(key=lambda tup: tup[1])  # check that
-            current = frontier.pop(0)
-            if toExit:
-                self.set_cell_color(current[0][0], current[0][1], Fore.RESET + Back.RESET)  # resets color
-            if (current[0][0], current[0][1]) == ex:
-                break
-            for next in get_adjacent(current[0], wrld):
-                if wrld.wall_at(next[0], next[1]):
-                    cost_so_far[(next[0], next[1])] = 999
-                    new_cost = 1000
-                elif (next[0], next[1]) in monsters:
-                    cost_so_far[(next[0], next[1])] = 99
-                    new_cost = 100
-                else:
-                    new_cost = self.cost_to(current[0], next) + cost_so_far[current[0]]
-                if next not in cost_so_far or new_cost < cost_so_far[next]:
-                    cost_so_far[next] = new_cost
-                    frontier.append((next, new_cost + self.manhattan_distance(next[0], next[1], ex[0], ex[1])))
-                    came_from[next] = current[0]
-
-        # self.printOurWorld(wrld, cost_so_far)
-
-        cursor = mapTo
-        path = []
-        while not cursor == (self.x, self.y):
-            if toExit:
-                self.set_cell_color(cursor[0], cursor[1], Fore.RED + Back.GREEN)
-            move = cursor
-            path.append(cursor)
-            try:
-                cursor = came_from[cursor]
-            except KeyError:
-                self.move(0, 0)
-                pass
-                break
-        # print("PATH: ")
-        # print(path)
-
-        if not len(path) == 0:
-            move = path[len(path) - 1]
-
-        # carries momentum? mayhaps not the best
-
-        
-        return move[0] - self.x, move[1] - self.y, len(path)
-        # self.move(move[0] - self.x, move[1] - self.y)
-
 # Returns a list of coordinates in the world surrounding the current one.
 # param current: An (x, y) point
 def get_adjacent(current, wrld):
@@ -217,3 +145,98 @@ def printFrontier(frontier):
         print(val)
 
 
+
+def aStar(char, wrld, mapTo, toExit=True):
+        # print("Searching From " + str((char.x, char.y)))
+        # print("Searching for " + str(mapTo))
+        char.reset_cells(wrld)
+        # A*
+        frontier = []
+        frontier.append(((char.x, char.y), 0))
+        came_from = {}
+        cost_so_far = {}
+        came_from[(char.x, char.y)] = None
+        cost_so_far[(char.x, char.y)] = 0
+        move = 1
+        # print("charX " + str(char.x))
+        # print("charY " + str(char.y))
+
+        monsters = []
+        ex = (7, 18)
+        if toExit:
+            # print("In here ")
+            # Iterates through board to find monsters and exit
+            for x in range(0, wrld.width()):
+                for y in range(0, wrld.height()):
+                    if wrld.monsters_at(x, y):  # Finds all the monsters in the board
+                        monsters.append((x, y))
+                    if wrld.exit_at(x, y):  # Just in case exit is not where we expect it to be in the bottom right corner
+                        ex = (x, y)
+
+            for t in monsters:
+                char.set_cell_color(t[0], t[1], Fore.RED + Back.RED)
+
+        while not len(frontier) == 0:
+            frontier.sort(key=lambda tup: tup[1])  # check that
+            current = frontier.pop(0)
+            if toExit:
+                char.set_cell_color(current[0][0], current[0][1], Fore.RESET + Back.RESET)  # resets color
+            if (current[0][0], current[0][1]) == ex:
+                break
+            for next in get_adjacent(current[0], wrld):
+                if wrld.wall_at(next[0], next[1]):
+                    cost_so_far[(next[0], next[1])] = 999
+                    new_cost = 1000
+                elif (next[0], next[1]) in monsters:
+                    cost_so_far[(next[0], next[1])] = 99
+                    new_cost = 100
+                else:
+                    new_cost = char.cost_to(current[0], next) + cost_so_far[current[0]]
+                if next not in cost_so_far or new_cost < cost_so_far[next]:
+                    cost_so_far[next] = new_cost
+                    frontier.append((next, new_cost + char.manhattan_distance(next[0], next[1], ex[0], ex[1])))
+                    came_from[next] = current[0]
+
+        # char.printOurWorld(wrld, cost_so_far)
+
+        cursor = mapTo
+        path = []
+        while not cursor == (char.x, char.y):
+            if toExit:
+                char.set_cell_color(cursor[0], cursor[1], Fore.RED + Back.GREEN)
+            move = cursor
+            path.append(cursor)
+            try:
+                cursor = came_from[cursor]
+            except KeyError:
+                char.move(0, 0)
+                pass
+                break
+        # print("PATH: ")
+        # print(path)
+
+        if not len(path) == 0:
+            move = path[len(path) - 1]
+
+        # carries momentum? mayhaps not the best
+
+        
+        return move[0] - char.x, move[1] - char.y, len(path), path
+        # char.move(move[0] - char.x, move[1] - char.y)
+
+def bombDistance(x, y, bomb, world):
+    xDist = -1
+    yDist = -1
+    danger = False
+    expl_range = world.expl_range
+
+    if(x == bomb[0]): #if in same row check y dist
+        xDist = bomb[0] - x
+        if(abs(xDist) < expl_range):
+            danger = True
+    if(y == bomb[1]): #if in same column
+        yDist = bomb[1] - y
+        if(abs(yDist) < expl_range):
+            danger = True
+        
+    return xDist, yDist, danger
