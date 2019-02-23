@@ -100,8 +100,8 @@ class Game:
             self.step()
             self.display_gui()
             self.draw()
+            input("Press Enter to continue...")
         colorama.deinit()
-        input("Press Enter to continue...")
 
 
     def step(self):
