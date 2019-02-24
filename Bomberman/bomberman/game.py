@@ -107,7 +107,7 @@ class Game:
         self.draw()
         while not self.done():
             self.display_gui()
-            step()
+            self.step()
             self.display_gui()
             self.draw()
             input("Press Enter to continue...")
@@ -147,6 +147,8 @@ class Game:
 
     def add_monster(self, m):
         self.world.add_monster(m)
+
+
 
     def add_character(self, c):
         self.world.add_character(c)
