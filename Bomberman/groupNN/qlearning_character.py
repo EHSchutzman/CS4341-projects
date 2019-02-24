@@ -14,8 +14,6 @@ from sensed_world import SensedWorld
 from events import Event
 init(autoreset=True)
 
-gamma = 0.8
-
 class QCharacter(CharacterEntity):
 
     def __init__(self, qtable, *args, **kwargs):
@@ -27,26 +25,83 @@ class QCharacter(CharacterEntity):
         self.qtable = qtable
 
     def do(self, wrld):
-        state = calculate_state((self.x, self.y), wrld)
-        self.updateQ(state, wrld)
+        if not self.threatened(wrld):
+            path = aStar((self.x, self.y), wrld, (7, 18))
+            print(path)
+            move = path[len(path) - 1]
+            self.move(move[0] - self.x, move[1] - self.y)
+            pass
+        else:
+            # IF threatened we want to
+            # 1st move away from monster
+            # THEN move toward goal.
+            # QLEARNING FOR THIS???
+            state = calculate_state((self.x, self.y), wrld)
 
-        path = aStar((self.x, self.y), wrld, (7, 18))  # Removed boolean to indicate path, might be good to re-add.
+            actions = self.valid_moves(wrld)
+            for a in actions:
+                self.setQ(state, a, wrld)
 
-        move = self.select_best_move(state, self.valid_moves(wrld))  # path[len(path) - 1]
+            move = self.select_best_move(state, actions)  #  path[len(path) - 1]
 
-        print(self.x, self.y)
-        print(wrld.exitcell)
-        if (self.x, self.y) == (wrld.exitcell[0], wrld.exitcell[1]):
-            print("\n\n WINNNNN \n\n")
+            print(self.x, self.y)
+            print(wrld.exitcell)
+            if (self.x, self.y) == (wrld.exitcell[0], wrld.exitcell[1]):
+                print("\n\n WINNNNN \n\n")
 
-        self.move(move[0] - self.x, move[1] - self.y)
-        pass
+            self.move(move[0] - self.x, move[1] - self.y)
+            pass
+
+    def setQ(self, state, action, wrld):
+        alpha = 0.8
+        gamma = 0.5
+        keys = self.qtable.keys()
+        ra = (self.x - action[0], self.y - action[1])  # Relative action
+        if (state, ra) not in keys:
+            self.qtable[(state, ra)] = 0
+
+        self.qtable[(state, ra)] = self.qtable[state, ra] + alpha * (self.reward(wrld) + gamma * self.getNextBestScore(state, wrld) - self.qtable[state, ra])
+
+    def reward(self, wrld):
+        dist = len(aStar((self.x, self.y), wrld, wrld.exitcell))
+        return 50 - dist
+
+    def getNextBestScore(self, state, wrld):
+        actions = get_adjacent((self.x, self.y), wrld)
+        keys = self.qtable.keys()
+        for a in actions:
+            # Check that there isn't a wall at this move
+            if not wrld.wall_at(a[0], a[1]):
+                # Check the reward we end up at after making this move
+                # Initialize state value to 0 if we haven't seen it before
+                ra = a[0] - self.x, a[1] - self.y  # RELATIVE action based on our position
+                if (state, ra) not in keys:
+                    self.qtable[(state, ra)] = 0
+                # Simulate taking this action and see what happens
+                sim = SensedWorld.from_world(wrld)  # creates simulated world
+                c = sim.me(self)  # finds character from simulated world
+                c.move(ra[0] - self.x, ra[1] - self.y)  # moves character in simulated world
+                s = sim.next()  # updates simulated world
+                c = s[0].me(c)  # gives us character. this is a tuple, we want the board, not the list of elapsed events
+
+                # Check if game is over
+                if c is None:
+                    print("Game can end!")
+                    print(s[1][0])
+                    for event in s[1]:
+                        if event.tpe == Event.CHARACTER_KILLED_BY_MONSTER and event.character.name == self.name:
+                            return -100
+                        elif event.tpe == Event.CHARACTER_FOUND_EXIT and event.character.name == self.name:
+                            return 100
+                else:
+                    return 0
 
     def select_best_move(self, state, moves):
         candidates = []
         # Construct table keys from possible moves and current state.
         for m in moves:
-            candidates.append((state, m))
+            rm = (self.x - m[0], self.y - m[1])  # Relative move
+            candidates.append((state, rm))
 
         m = -1000
 
@@ -64,13 +119,19 @@ class QCharacter(CharacterEntity):
 
         return random.choice(moves)
 
+    def threatened(self, wrld):
+        # TODO Add a check for bombs as well
+        if closest_monster((self.x, self.y), wrld) <= 2:
+            return True
+        return False
+
     # Updates the QTable.
     def updateQ(self, state, wrld):
-        alpha = 0.3
+        alpha = 0.1
         moves = get_adjacent((self.x, self.y), wrld)
         keys = self.qtable.keys()
         for m in moves:
-            # if q value not initialize, initialize it to 0
+            # if q value not initialized, initialize it to 0
             if (state, m) not in keys:
                 self.qtable[(state, m)] = 0
             if not wrld.wall_at(m[0], m[1]):

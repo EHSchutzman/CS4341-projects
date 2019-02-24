@@ -92,7 +92,7 @@ class Game:
                     self.screen.blit(self.bomb_sprite, rect)
         pygame.display.flip()
 
-    def go(self, wait=50):
+    def go(self, wait=10):
         """ Main game loop. """
 
         if wait is 0:
@@ -107,10 +107,10 @@ class Game:
         self.draw()
         while not self.done():
             self.display_gui()
+            (self.world, self.events) = self.world.next()
             step()
             self.display_gui()
             self.draw()
-            input("Press Enter to continue...")
         colorama.deinit()
 
 
