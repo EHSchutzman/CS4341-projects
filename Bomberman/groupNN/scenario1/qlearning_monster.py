@@ -16,7 +16,7 @@ from monsters.selfpreserving_monster import SelfPreservingMonster
 
 qtable = {}
 
-for i in range(0, 20):
+for i in range(0, 50):
     # Create the game
     g = Game.fromfile('map.txt')
 

@@ -50,7 +50,9 @@ class QCharacter(CharacterEntity):
             if (self.x, self.y) == (wrld.exitcell[0], wrld.exitcell[1]):
                 print("\n\n WINNNNN \n\n")
 
-            self.move(move[0] - self.x, move[1] - self.y)
+            print("MOVE:")
+            print(move)
+            self.move(move[0], move[1])
             pass
 
     def setQ(self, state, action, wrld):
@@ -123,45 +125,6 @@ class QCharacter(CharacterEntity):
         if closest_monster((self.x, self.y), wrld) <= 2:
             return True
         return False
-
-    # Updates the QTable.
-    def updateQ(self, state, wrld):
-        alpha = 0.1
-        moves = get_adjacent((self.x, self.y), wrld)
-        keys = self.qtable.keys()
-        for m in moves:
-            # if q value not initialized, initialize it to 0
-            if (state, m) not in keys:
-                self.qtable[(state, m)] = 0
-            if not wrld.wall_at(m[0], m[1]):
-                sim = SensedWorld.from_world(wrld)  # creates simulated world
-                c = sim.me(self)  # finds character from simulated world
-                c.move(m[0] - self.x, m[1] - self.y)  # moves character in simulated world
-                s = sim.next()  # updates simulated world
-                c = s[0].me(c)  # gives us character. this is a tuple, we want the board, not the list of elapsed events
-
-                # Check if game is over
-                if c is None:
-                    print("ENDED!")
-                    print(s[0])
-                    print(s[1])
-                    print("EVENT 0: ")
-                    print(s[1][0])
-                    for event in s[1]:
-                        if event.tpe == Event.CHARACTER_KILLED_BY_MONSTER and event.character.name == self.name:
-                            self.qtable[(state, m)] = -5 + gamma * self.qtable[(state, m)]
-                        elif event.tpe == Event.CHARACTER_FOUND_EXIT and event.character.name == self.name:
-                            self.qtable[(state, m)] = 5 + gamma * self.qtable[(state, m)]
-                else:
-                    self.qtable[(state, m)] = reward(c, wrld) + gamma * self.qtable[(state, m)]
-
-    def q(self, action):
-        # shortsighted update q
-        # Q(s, a) = w1*f(s, a) + w2*f(s, a) + w3*f(s, a)
-        # ∆ ← [r + γ maxa Q(s, a) − Q(s, a)
-        # Q(s, a) ← Q(s, a) + α∆
-        # wi ← wi + α∆
-        return 0
 
     def valid_moves(self, wrld):
         moves = get_adjacent((self.x, self.y), wrld)
