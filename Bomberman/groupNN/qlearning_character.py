@@ -3,6 +3,7 @@ import sys
 import operator
 import random
 import math
+import numpy as np
 
 sys.path.insert(0, '../bomberman')
 # Import necessary stuff
@@ -40,9 +41,9 @@ class QCharacter(CharacterEntity):
 
             actions = self.valid_moves(wrld)
             for a in actions:
-                self.setQ(state, a, wrld)
+                 self.setQ(state, a, wrld)
 
-            move = self.select_best_move(state, actions)  #  path[len(path) - 1]
+            move = self.select_best_move(state, actions, wrld)  #  path[len(path) - 1]
 
             print(self.x, self.y)
             print(wrld.exitcell)
@@ -56,15 +57,11 @@ class QCharacter(CharacterEntity):
         alpha = 0.8
         gamma = 0.5
         keys = self.qtable.keys()
-        ra = (self.x - action[0], self.y - action[1])  # Relative action
+        ra = (action[0] - self.x, action[1] - self.y)  # Relative action
         if (state, ra) not in keys:
             self.qtable[(state, ra)] = 0
 
-        self.qtable[(state, ra)] = self.qtable[state, ra] + alpha * (self.reward(wrld) + gamma * self.getNextBestScore(state, wrld) - self.qtable[state, ra])
-
-    def reward(self, wrld):
-        dist = len(aStar((self.x, self.y), wrld, wrld.exitcell))
-        return 50 - dist
+        self.qtable[(state, ra)] = self.qtable[state, ra] + alpha * (reward(self, wrld) + gamma * self.getNextBestScore(state, wrld) - self.qtable[state, ra])
 
     def getNextBestScore(self, state, wrld):
         actions = get_adjacent((self.x, self.y), wrld)
@@ -94,14 +91,16 @@ class QCharacter(CharacterEntity):
                         elif event.tpe == Event.CHARACTER_FOUND_EXIT and event.character.name == self.name:
                             return 100
                 else:
-                    return 0
+                    return reward(c, wrld)
 
-    def select_best_move(self, state, moves):
+    def select_best_move(self, state, moves, wrld):
         candidates = []
         # Construct table keys from possible moves and current state.
         for m in moves:
-            rm = (self.x - m[0], self.y - m[1])  # Relative move
-            candidates.append((state, rm))
+            if not wrld.wall_at(m[0], m[1]):
+                rm = (m[0] - self.x, m[1] - self.y)
+                print(rm)  # Relative move #TODO THIS MAY NOT BE RIGHT. Maybe should be m[1] - self.x
+                candidates.append((state, rm))
 
         m = -1000
 
@@ -110,7 +109,7 @@ class QCharacter(CharacterEntity):
         for c in candidates:
             print("Move, score;")
             print(c, self.qtable[c])
-            if m < self.qtable[c]:
+            if self.qtable[c] > m:
                 moves.clear()
                 m = self.qtable[c]
                 moves.append(c[1])
@@ -209,10 +208,8 @@ def cost_to(current, next):
 # Returns a vector of values representing each feature.
 # Vector structure: (bomb distance, monster distance, exit distance)
 def calculate_state(coords, wrld):
-    return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), euclidean_distance(coords, wrld) + distance_to_exit(coords, wrld)
-                            #manhattan_distance(coords[0], coords[1], wrld.exitcell[0], wrld.exitcell[1]) +\
-
-
+    monster = closest_monster((coords[0], coords[1]), wrld)
+    return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), monster_direction(coords, wrld)
 
 # ==================== FEATURES ==================== #
 #   - Distance to closest bomb
@@ -258,6 +255,25 @@ def monster_tiles(wrld):
                 tiles.append((x, y))
     return tiles
 
+def monster_direction(coords, wrld):
+    x = coords[0]
+    y = coords[1]
+    monsters = monster_tiles(wrld)
+    mcoords = 0, 0
+    xval = 0
+    yval = 0
+    p = float('inf')
+    for m in monsters:
+        distance = len(aStar((x, y), wrld, m))
+        if distance < p:
+            p = distance
+            mcoords = (m[0], m[1])
+            xval = m[0] - x
+            yval = m[1] - y
+
+    return np.sign(xval), np.sign(yval)
+
+
 
 # Returns a list of coordinates in the world surrounding the current one.
 # param current: An (x, y) point
@@ -291,8 +307,8 @@ def get_adjacent(current, wrld):
 def reward(c, wrld):
     dist = len(aStar((c.x, c.y), wrld, wrld.exitcell))
     if dist == 0:
-        return 10
-    return 1 / (2 * dist + manhattan_distance(c.x, c.y, wrld.exitcell[0], wrld.exitcell[1]))
+        return 1
+    return -dist
 
 def aStar(start, wrld, goal):
     x = start[0]

@@ -19,6 +19,7 @@ qtable = {}
 for i in range(0, 20):
     # Create the game
     g = Game.fromfile('map.txt')
+
     g.add_monster(StupidMonster("monster",  # name
                                 "M",  # avatar
                                 3, 9  # position
