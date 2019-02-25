@@ -14,22 +14,24 @@ from qlearning_character import QCharacter
 from monsters.stupid_monster import StupidMonster
 from monsters.selfpreserving_monster import SelfPreservingMonster
 
+f = open("qtable.txt", "w")
+
 qtable = {}
 
-for i in range(0, 50):
+for i in range(0, 30):
     # Create the game
     g = Game.fromfile('map.txt')
 
-    g.add_monster(StupidMonster("monster",  # name
-                                "M",  # avatar
-                                3, 9  # position
-                                ))
+    # g.add_monster(StupidMonster("monster",  # name
+    #                             "M",  # avatar
+    #                             3, 9  # position
+    #                             ))
 
-    # g.add_monster(SelfPreservingMonster("monster",  # name
-    #                                     "M",  # avatar
-    #                                     3, 13,  # position
-    #                                     2  # detection range
-    #                                     ))
+    g.add_monster(SelfPreservingMonster("monster",  # name
+                                        "M",  # avatar
+                                        3, 13,  # position
+                                        2  # detection range
+                                        ))
 
     # TODO Add your character
     g.add_character(QCharacter(qtable,  # starting q table
@@ -40,5 +42,6 @@ for i in range(0, 50):
     # Run!
     g.go()
 
-
 print(qtable)
+f.write(ascii(qtable))
+f.close()

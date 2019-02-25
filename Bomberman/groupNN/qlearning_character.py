@@ -172,7 +172,9 @@ def cost_to(current, next):
 # Vector structure: (bomb distance, monster distance, exit distance)
 def calculate_state(coords, wrld):
     monster = closest_monster((coords[0], coords[1]), wrld)
-    return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), monster_direction(coords, wrld)
+    dist = distance_to_exit(coords, wrld)
+    # TODO Add distance to wall??
+    return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), monster_direction(coords, wrld), dist
 
 # ==================== FEATURES ==================== #
 #   - Distance to closest bomb
