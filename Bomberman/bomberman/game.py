@@ -107,10 +107,10 @@ class Game:
         self.draw()
         while not self.done():
             self.display_gui()
+            (self.world, self.events) = self.world.next()
             step()
             self.display_gui()
             self.draw()
-            input("Press Enter to continue...")
         colorama.deinit()
 
 

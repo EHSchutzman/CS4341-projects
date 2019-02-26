@@ -5,6 +5,7 @@ import math
 sys.path.insert(0, '../bomberman')
 # Import necessary stuff
 from entity import CharacterEntity
+from sensed_world import *
 from colorama import Fore, Back, Style, init
 init(autoreset=True)
 
@@ -12,45 +13,51 @@ class TestCharacterExpecti(CharacterEntity):
     def do(self, wrld):
         max_depth = 4
         bestMove = self.expectiMax(wrld, max_depth)
-        return bestMove[0]
+        return bestMove
 
     def expectiMax(self, wrld, max_depth):
         moves = self.findWrld(wrld) 
-        maxVal = -10000
+        max = -10000
         for potential in moves:
+            #print(potential)
             new = self.expVal(potential[1], max_depth)
-            if new > maxVal:
-                maxVal = new
-        return maxVal[0]
+            if new[1] > max:
+                max = new[1]
+        return max
 
     def expVal(self, wrld, max_depth):
-        if max_depth == 0 or (self.x,self.y) == wrld.exit_cell():
+        if max_depth == 0 or (self.x,self.y) == wrld.exitcell:
             move = self.util(wrld)
-            return (move, None)
+            return move, 0
         else:
-            (bestMove, value) = (None, 0)
+            bestMove = None
+            value = float("-inf")
             possibleMoves = self.findWrld(wrld)
             for a in possibleMoves:
                 prob = self.probability()
-                (bestMove, value) =(a, value + prob * self.maxVal(a[0], max_depth -1))
-        return (bestMove, value)
+                print(self.maxVal(a[1], max_depth -1))
+                bestMove = a[0]
+                value = value + prob * self.maxVal(a[1], max_depth -1)[1]
+        return bestMove, value
 
     def maxVal(self, wrld, max_depth):
-        if max_depth == 0 or (self.x, self.y) == wrld.exit_cell():
+        if max_depth == 0 or (self.x, self.y) == wrld.exitcell:
             move = self.util(wrld)
-            return (move, None)
+            return move, 0
         else:
-            (bestMove, value) = (None, float("-inf"))
+            bestMove = None
+            value = 0
             possibleMoves = self.findWrld(wrld)
             for a in possibleMoves:
-                (bestMove, value) = (a, max(value, self.expVal(a[0], max_depth -1)))
-        return (bestMove, value)
+                bestMove = a[0]
+                value = self.expVal(a[1], max_depth -1)[1]
+        return bestMove, value
 
     def probability(self):
-        prob = (1/8)
+        prob = 1/8
         return prob
     
-    def utility(self, wrld):
+    def util(self, wrld):
         util = 0
         return util
 
@@ -64,7 +71,7 @@ class TestCharacterExpecti(CharacterEntity):
                 c.move(m[0] - self.x, m[1] - self.y)  # moves character in simulated world
                 s = sim.next()  # updates simulated world
                 c = s[0].me(c)
-                possibleMoves.append((m, s))
+                possibleMoves.append((m, s[0]))
                   # gives us character. this is a tuple, we want the board, not the list of elapsed events
                 #m is the move (x,y) sim = new world (m, sim) ((x,y), world)
         
