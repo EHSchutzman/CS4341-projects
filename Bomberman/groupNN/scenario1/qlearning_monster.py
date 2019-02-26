@@ -14,11 +14,22 @@ from qlearning_character import QCharacter
 from monsters.stupid_monster import StupidMonster
 from monsters.selfpreserving_monster import SelfPreservingMonster
 
-f = open("qtable.txt", "w")
+f = open("qtable.txt", "r")
 
 qtable = {}
 
-for i in range(0, 30):
+for line in f.readlines():
+    line = line.rstrip()
+    if not line:
+        break
+    key = line[:line.find(":")]
+    print(key)
+    qtable[key] = line[line.find(":") + 2:]
+    print(line[line.find(":") + 2:])
+
+f.close()
+
+for i in range(0, 100):
     # Create the game
     g = Game.fromfile('map.txt')
 
@@ -43,5 +54,11 @@ for i in range(0, 30):
     g.go()
 
 print(qtable)
-f.write(ascii(qtable))
+
+f = open("qtable.txt", "w")
+
+
+keys = qtable.keys()
+for k in keys:
+    f.write(str(k) + ": " + str(qtable[k]) + "\n")
 f.close()

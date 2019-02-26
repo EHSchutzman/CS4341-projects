@@ -24,6 +24,12 @@ class QCharacter(CharacterEntity):
         # Debugging elements
         self.tiles = {}
         self.qtable = qtable
+        self.wb = 1  # weight of bomb feature
+        self.wm = 1  # weight of monster feature
+        self.wd = 1  # weight of monster direction
+        self.wg = 1  # weight of goal direction
+
+        # return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), monster_direction(coords, wrld), dist
 
     def do(self, wrld):
         if not self.threatened(wrld):
@@ -38,6 +44,10 @@ class QCharacter(CharacterEntity):
             # THEN move toward goal.
             # QLEARNING FOR THIS???
             state = calculate_state((self.x, self.y), wrld)
+
+
+            print("NExt best score::: ")
+            print(self.getNextBestScore(state, wrld))
 
             actions = self.valid_moves(wrld)
             for a in actions:
@@ -55,14 +65,36 @@ class QCharacter(CharacterEntity):
             self.move(move[0], move[1])
             pass
 
-    def setQ(self, state, action, wrld):
-        alpha = 0.8
-        gamma = 0.5
+    def approximateQ(self, state, action, wrld):
+        alpha = 0.6
+        gamma = 0.8
         keys = self.qtable.keys()
         ra = (action[0] - self.x, action[1] - self.y)  # Relative action
         if (state, ra) not in keys:
             self.qtable[(state, ra)] = 0
 
+        # Update weights of each feature
+        delta = (reward(self, wrld) + gamma * self.getNextBestScore(state, wrld) - self.qtable[state, ra])
+        # First feature: distance to bomb
+        self.wb = self.wb + alpha * delta * closest_bomb()
+        # Second feature: distance to closest monster
+        self.wm = self.wm + alpha * delta * closest_monster((self.x, self.y), wrld)
+        # # Third feature: direction of closest monster, DOESN'T ACTUALLY WORK BC NOT A SCALAR
+        # self.wd = self.wd + alpha * delta * monster_direction((self.x, self.y), wrld)
+        # Fourth monster: distance to exit
+        self.wd = self.wd + alpha * delta * distance_to_exit((self.x, self.y), wrld)
+
+        self.qtable[(state, ra)] = self.wb * closest_bomb() + self.wm + closest_monster((self.x, self.y), wrld) +\
+            self.wd * distance_to_exit((self.x, self.y), wrld)
+
+
+    def setQ(self, state, action, wrld):
+        alpha = 0.2
+        gamma = 0.8
+        keys = self.qtable.keys()
+        ra = (action[0] - self.x, action[1] - self.y)  # Relative action
+        if (state, ra) not in keys:
+            self.qtable[(state, ra)] = 0
         self.qtable[(state, ra)] = self.qtable[state, ra] + alpha * (reward(self, wrld) + gamma * self.getNextBestScore(state, wrld) - self.qtable[state, ra])
 
     def getNextBestScore(self, state, wrld):
@@ -79,7 +111,7 @@ class QCharacter(CharacterEntity):
                 # Simulate taking this action and see what happens
                 sim = SensedWorld.from_world(wrld)  # creates simulated world
                 c = sim.me(self)  # finds character from simulated world
-                c.move(ra[0] - self.x, ra[1] - self.y)  # moves character in simulated world
+                c.move(ra[0], ra[1])  # moves character in simulated world
                 s = sim.next()  # updates simulated world
                 c = s[0].me(c)  # gives us character. this is a tuple, we want the board, not the list of elapsed events
 
@@ -101,10 +133,10 @@ class QCharacter(CharacterEntity):
         for m in moves:
             if not wrld.wall_at(m[0], m[1]):
                 rm = (m[0] - self.x, m[1] - self.y)
-                print(rm)  # Relative move #TODO THIS MAY NOT BE RIGHT. Maybe should be m[1] - self.x
+                print(rm)  # Relative move
                 candidates.append((state, rm))
 
-        m = -1000
+        m = float('-inf')
 
         moves = []
 
@@ -273,7 +305,7 @@ def reward(c, wrld):
     dist = len(aStar((c.x, c.y), wrld, wrld.exitcell))
     if dist == 0:
         return 1
-    return -dist
+    return -dist #- dist here is actually better than 1 / dist it seems?
 
 def aStar(start, wrld, goal):
     x = start[0]
