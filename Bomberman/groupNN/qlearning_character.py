@@ -42,17 +42,13 @@ class QCharacter(CharacterEntity):
             self.last_action = move[0] - self.x, move[1] - self.y
             pass
         else:
-            # IF threatened we want to
-            # 1st move away from monster
-            # THEN move toward goal.
-            # QLEARNING FOR THIS???
+            # If we are threatened, we do qlearning
             state = calculate_state((self.x, self.y), wrld)
-            print("NExt best score::: ")
-            print(self.getNextBestScore(state, wrld))
 
+            # TODO Check that this is right.....
             actions = self.valid_moves(wrld)
             for a in actions:
-                 self.approximateQ(state, a, wrld)
+                self.approximateQ(state, a, wrld)
 
             move = self.select_best_move(state, actions, wrld)
 
@@ -65,22 +61,29 @@ class QCharacter(CharacterEntity):
             print(self.wg)
 
             self.last_action = move
-            self.move(move[0], move[1])
-            pass
+            if move == "bomb":
+                self.place_bomb()
+                pass
+            else:
+                self.move(move[0], move[1])
+                pass
 
     def approximateQ(self, state, action, wrld):
         alpha = 0.3
         gamma = 0.2
         keys = self.qtable.keys()
-        ra = (action[0] - self.x, action[1] - self.y)  # Relative action
+        if action != "bomb":
+            ra = (action[0] - self.x, action[1] - self.y)  # Relative action
+        else:
+            ra = action
         if (state, ra) not in keys:
             self.qtable[(state, ra)] = 0
 
         # Update weights of each feature
-        # TODO FIX self.getNextBestScore
+
         delta = (gamma * self.getNextBestScore(state, wrld)) - self.qtable[state, ra]
         # First feature: distance to bomb
-        self.wb = self.wb + alpha * delta * closest_bomb()
+        self.wb = self.wb + alpha * delta * closest_bomb((self.x, self.y), wrld)
         # Second feature: distance to closest monster
         self.wm = self.wm + alpha * delta * closest_monster((self.x, self.y), wrld)
         # Third feature: direction of closest monster, DOESN'T ACTUALLY WORK BC NOT A SCALAR
@@ -93,7 +96,7 @@ class QCharacter(CharacterEntity):
 
         self.qtable[(state, ra)] = self.qtable[(state, ra)] + delta*alpha
 
-    # Pretty sure there is a problem here, with simulating next worlds.
+    # Gets the max possible score from the set of available moves.
     def getNextBestScore(self, state, wrld):
         actions = get_adjacent((self.x, self.y), wrld)
         keys = self.qtable.keys()
@@ -107,7 +110,10 @@ class QCharacter(CharacterEntity):
             if not wrld.wall_at(a[0], a[1]):
                 # Check the reward we end up at after making this move
                 # Initialize state value to 0 if we haven't seen it before
-                ra = a[0] - self.x, a[1] - self.y  # RELATIVE action based on our position
+                if a != "bomb":
+                    ra = a[0] - self.x, a[1] - self.y  # RELATIVE action based on our position
+                else:
+                    ra = a
                 if (state, ra) not in keys:
                     self.qtable[(state, ra)] = 0
                 # This is the score of the move from this state
@@ -122,7 +128,9 @@ class QCharacter(CharacterEntity):
         candidates = []
         # Construct table keys from possible moves and current state.
         for m in moves:
-            if not wrld.wall_at(m[0], m[1]):
+            if m == "bomb":
+                candidates.append((state, m))
+            elif not wrld.wall_at(m[0], m[1]):
                 rm = (m[0] - self.x, m[1] - self.y)
                 print(rm)  # Relative move
                 candidates.append((state, rm))
@@ -154,6 +162,8 @@ class QCharacter(CharacterEntity):
         for m in moves:
             if not wrld.wall_at(m[0], m[1]):
                 final.append(m)
+        if len(get_bombs(wrld)) == 0:
+            final.append("bomb")
         return final
 
     # Resets styling for each cell. Prevents unexpected/inconsistent behavior that otherwise appears with coloring.
@@ -197,7 +207,7 @@ def calculate_state(coords, wrld):
     dist = distance_to_exit(coords, wrld)
 
     # TODO Add distance to wall??
-    return closest_bomb(), monster, dist, closest_wall(coords, wrld)
+    return closest_bomb(coords, wrld), monster, dist, closest_wall(coords, wrld)
 
 # ==================== FEATURES ==================== #
 #   - Distance to closest bomb
@@ -206,8 +216,17 @@ def calculate_state(coords, wrld):
 #   - Distance to closest wall
 
 # Returns an integer representing the Manhattan distance to the closest bomb.
-def closest_bomb():
-   return 1  # Will implement this later, in part 2 most likely. For now we don't care about bombs.
+def closest_bomb(coords, wrld):
+    bombs = get_bombs(wrld)
+    if len(bombs) == 0:
+        return 100
+    mindist = float('inf')
+    for b in bombs:
+        score = manhattan_distance(coords[0], coords[1], b[0], b[1])
+        if score < mindist:
+            mindist = score
+    return mindist
+
 
 # Returns an integer representing the A* distance to the closest monster.
 def closest_monster(coords, wrld):
@@ -268,7 +287,14 @@ def monster_direction(coords, wrld):
 
     return np.sign(xval), np.sign(yval)
 
-
+# Returns a list of coordinates that contain bombs.
+def get_bombs(wrld):
+    bombs = []
+    for x in range(0, wrld.width()):
+        for y in range(0, wrld.height()):
+            if wrld.bomb_at(x, y):
+                bombs.append((x, y))
+    return bombs
 
 # Returns a list of coordinates in the world surrounding the current one.
 # param current: An (x, y) point
