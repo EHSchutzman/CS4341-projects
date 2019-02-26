@@ -17,28 +17,29 @@ init(autoreset=True)
 
 class QCharacter(CharacterEntity):
 
-    def __init__(self, qtable, *args, **kwargs):
+    def __init__(self, qtable, wb, wm, wg, ww, *args, **kwargs):
         super(QCharacter, self).__init__(*args, **kwargs)
         # Whether this character wants to place a bomb
         self.maybe_place_bomb = False
         # Debugging elements
         self.tiles = {}
         self.qtable = qtable
-        self.wb = -5  # weight of bomb feature
-        self.wm = -10  # weight of monster distance feature
-        self.wg = 2  # weight of goal distance
+        self.wb = wb  # weight of bomb feature
+        self.wm = wm  # weight of monster distance feature
+        self.wg = wg  # weight of goal distance
+        self.ww = ww  # weight of distance to closest wall
+        self.last_action = None
 
         # return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), monster_direction(coords, wrld), dist
 
     def do(self, wrld):
-        print("REWARD:::")
-        print(reward(self, wrld))
         if not self.threatened(wrld):
             path = aStar((self.x, self.y), wrld, wrld.exitcell)  # (7, 18) usualy
             print("Path " + str(path))
             move = path[len(path) - 1]
             print("move " + str(move))
             self.move(move[0] - self.x, move[1] - self.y)
+            self.last_action = move[0] - self.x, move[1] - self.y
             pass
         else:
             # IF threatened we want to
@@ -46,8 +47,6 @@ class QCharacter(CharacterEntity):
             # THEN move toward goal.
             # QLEARNING FOR THIS???
             state = calculate_state((self.x, self.y), wrld)
-
-
             print("NExt best score::: ")
             print(self.getNextBestScore(state, wrld))
 
@@ -55,12 +54,7 @@ class QCharacter(CharacterEntity):
             for a in actions:
                  self.approximateQ(state, a, wrld)
 
-            move = self.select_best_move(state, actions, wrld)  #  path[len(path) - 1]
-
-            print(self.x, self.y)
-            print(wrld.exitcell)
-            if (self.x, self.y) == (wrld.exitcell[0], wrld.exitcell[1]):
-                print("\n\n WINNNNN \n\n")
+            move = self.select_best_move(state, actions, wrld)
 
             print("MOVE:")
             print(move)
@@ -70,12 +64,13 @@ class QCharacter(CharacterEntity):
             print(self.wm)
             print(self.wg)
 
+            self.last_action = move
             self.move(move[0], move[1])
             pass
 
     def approximateQ(self, state, action, wrld):
-        alpha = 0.6
-        gamma = 0.8
+        alpha = 0.3
+        gamma = 0.2
         keys = self.qtable.keys()
         ra = (action[0] - self.x, action[1] - self.y)  # Relative action
         if (state, ra) not in keys:
@@ -83,7 +78,7 @@ class QCharacter(CharacterEntity):
 
         # Update weights of each feature
         # TODO FIX self.getNextBestScore
-        delta = (reward(self, wrld) + gamma * self.getNextBestScore(state, wrld)) - self.qtable[state, ra]
+        delta = (gamma * self.getNextBestScore(state, wrld)) - self.qtable[state, ra]
         # First feature: distance to bomb
         self.wb = self.wb + alpha * delta * closest_bomb()
         # Second feature: distance to closest monster
@@ -93,24 +88,20 @@ class QCharacter(CharacterEntity):
         # Fourth feature: distance to exit
         self.wg = self.wg + alpha * delta * distance_to_exit((self.x, self.y), wrld)
 
-        self.qtable[(state, ra)] = self.wb * closest_bomb() + self.wm + closest_monster((self.x, self.y), wrld) +\
-            self.wg * distance_to_exit((self.x, self.y), wrld)
+        # Fourth feature: distance to exit
+        self.ww = self.ww + alpha * delta * closest_wall((self.x, self.y), wrld)
 
-
-    def setQ(self, state, action, wrld):
-        alpha = 0.2
-        gamma = 0.8
-        keys = self.qtable.keys()
-        ra = (action[0] - self.x, action[1] - self.y)  # Relative action
-        if (state, ra) not in keys:
-            self.qtable[(state, ra)] = 0
-        self.qtable[(state, ra)] = self.qtable[state, ra] + alpha * (reward(self, wrld) + gamma * self.getNextBestScore(state, wrld) - self.qtable[state, ra])
-
+        self.qtable[(state, ra)] = self.qtable[(state, ra)] + delta*alpha
 
     # Pretty sure there is a problem here, with simulating next worlds.
     def getNextBestScore(self, state, wrld):
         actions = get_adjacent((self.x, self.y), wrld)
         keys = self.qtable.keys()
+
+        # Find best known score in qtable
+        bestscore = float('-inf')
+        potential = []
+
         for a in actions:
             # Check that there isn't a wall at this move
             if not wrld.wall_at(a[0], a[1]):
@@ -119,26 +110,13 @@ class QCharacter(CharacterEntity):
                 ra = a[0] - self.x, a[1] - self.y  # RELATIVE action based on our position
                 if (state, ra) not in keys:
                     self.qtable[(state, ra)] = 0
-                # Simulate taking this action and see what happens
-                sim = SensedWorld.from_world(wrld)  # creates simulated world
-                c = sim.me(self)  # finds character from simulated world
-                c.move(ra[0], ra[1])  # moves character in simulated world
-                s = sim.next()  # updates simulated world
-                c = s[0].me(c)  # gives us character. this is a tuple, we want the board, not the list of elapsed events
+                # This is the score of the move from this state
+                score = self.qtable[(state, ra)]
+                if score > bestscore:
+                    bestscore = score
 
-                print(s[0].grid)
+        return bestscore
 
-                # Check if game is over
-                if c is None:
-                    print("Game can end!")
-                    print(s[1][0])
-                    for event in s[1]:
-                        if event.tpe == Event.CHARACTER_KILLED_BY_MONSTER and event.character.name == self.name:
-                            return -10
-                        elif event.tpe == Event.CHARACTER_FOUND_EXIT and event.character.name == self.name:
-                            return 10
-                else:
-                    return reward(c, wrld)
 
     def select_best_move(self, state, moves, wrld):
         candidates = []
@@ -162,7 +140,6 @@ class QCharacter(CharacterEntity):
                 moves.append(c[1])
             elif m == self.qtable[c]:
                 moves.append(c[1])
-
         return random.choice(moves)
 
     def threatened(self, wrld):
@@ -218,19 +195,19 @@ def cost_to(current, next):
 def calculate_state(coords, wrld):
     monster = closest_monster((coords[0], coords[1]), wrld)
     dist = distance_to_exit(coords, wrld)
+
     # TODO Add distance to wall??
-    return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), dist  # monster_direction(coords, wrld),
+    return closest_bomb(), monster, dist, closest_wall(coords, wrld)
 
 # ==================== FEATURES ==================== #
 #   - Distance to closest bomb
 #   - Distance to closest monster
-#   - 1 / (Distance to exit)^2
-
+#   - Distance to goal
+#   - Distance to closest wall
 
 # Returns an integer representing the Manhattan distance to the closest bomb.
 def closest_bomb():
    return 1  # Will implement this later, in part 2 most likely. For now we don't care about bombs.
-
 
 # Returns an integer representing the A* distance to the closest monster.
 def closest_monster(coords, wrld):
@@ -252,8 +229,16 @@ def distance_to_exit(coords, wrld):
         return 1
     return 1 / dist
 
-def euclidean_distance(coords, wrld):
-    return math.sqrt(((coords[0] - wrld.exitcell[0]) * coords[1] - wrld.exitcell[1]) ** 2)
+def closest_wall(coords, wrld):
+    walls = get_walls(wrld)
+    mindist = float("inf")
+    for w in walls:
+        dist = manhattan_distance(coords[0], coords[1], w[0], w[1])
+        if dist < mindist:
+            mindist = dist
+    return mindist
+
+# ========== END OF FEATURES ==========
 
 
 # Returns a list of tiles which are occupied by at least 1 monster.
@@ -314,19 +299,14 @@ def get_adjacent(current, wrld):
 
     return neighbors
 
-def reward(c, wrld):
-    dist = len(aStar((c.x, c.y), wrld, wrld.exitcell))
-    monster = closest_monster((c.x, c.y), wrld)
-    if monster <= 1:
-        return -1
-    if monster == 2:
-        return -0.5
-    if monster == 3:
-        return -0.25
-    if dist == 0:
-        return 1
-    else:
-        return 1 / dist #- dist here is actually better than 1 / dist it seems?
+def get_walls(wrld):
+    walls = []
+
+    for x in range(0, wrld.width()):
+        for y in range(0, wrld.height()):
+            if wrld.wall_at(x, y):
+                walls.append((x, y))
+    return walls
 
 def aStar(start, wrld, goal):
     x = start[0]
@@ -351,8 +331,8 @@ def aStar(start, wrld, goal):
                 cost_so_far[(next[0], next[1])] = 999
                 new_cost = 1000
             else:
-                # new_cost = cost_to(current[0], next) + cost_so_far[current[0]]
-                new_cost = 1 + cost_so_far[current[0]]
+                new_cost = cost_to(current[0], next) + cost_so_far[current[0]]
+                #new_cost = 1 + cost_so_far[current[0]]
             if next not in cost_so_far or new_cost < cost_so_far[next]:
                 cost_so_far[next] = new_cost
                 frontier.append((next, new_cost + manhattan_distance(next[0], next[1], goal[0], goal[1])))
