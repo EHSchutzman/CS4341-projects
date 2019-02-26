@@ -31,18 +31,18 @@ f.close()
 
 for i in range(0, 50):
     # Create the game
-    g = Game.fromfile('map.txt')
+    g = Game.fromfile('simpleworld.txt')
 
     # g.add_monster(StupidMonster("monster",  # name
     #                             "M",  # avatar
     #                             3, 9  # position
     #                             ))
 
-    g.add_monster(SelfPreservingMonster("monster",  # name
-                                        "M",  # avatar
-                                        3, 13,  # position
-                                        2  # detection range
-                                        ))
+    # g.add_monster(SelfPreservingMonster("monster",  # name
+    #                                     "M",  # avatar
+    #                                     3, 13,  # position
+    #                                     2  # detection range
+    #                                     ))
 
     # TODO Add your character
     g.add_character(QCharacter(qtable,  # starting q table

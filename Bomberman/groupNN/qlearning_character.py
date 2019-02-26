@@ -31,10 +31,13 @@ class QCharacter(CharacterEntity):
         # return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), monster_direction(coords, wrld), dist
 
     def do(self, wrld):
+        print("REWARD:::")
+        print(reward(self, wrld))
         if not self.threatened(wrld):
-            path = aStar((self.x, self.y), wrld, (7, 18))
-            print(path)
+            path = aStar((self.x, self.y), wrld, wrld.exitcell)  # (7, 18) usualy
+            print("Path " + str(path))
             move = path[len(path) - 1]
+            print("move " + str(move))
             self.move(move[0] - self.x, move[1] - self.y)
             pass
         else:
@@ -67,9 +70,6 @@ class QCharacter(CharacterEntity):
             print(self.wm)
             print(self.wg)
 
-            # The program is calculating the goal as a negatively weighted attribute?? WAIT that actually makes sense
-            # because distance to goal is negative.
-
             self.move(move[0], move[1])
             pass
 
@@ -82,6 +82,7 @@ class QCharacter(CharacterEntity):
             self.qtable[(state, ra)] = 0
 
         # Update weights of each feature
+        # TODO FIX self.getNextBestScore
         delta = (reward(self, wrld) + gamma * self.getNextBestScore(state, wrld)) - self.qtable[state, ra]
         # First feature: distance to bomb
         self.wb = self.wb + alpha * delta * closest_bomb()
@@ -105,6 +106,8 @@ class QCharacter(CharacterEntity):
             self.qtable[(state, ra)] = 0
         self.qtable[(state, ra)] = self.qtable[state, ra] + alpha * (reward(self, wrld) + gamma * self.getNextBestScore(state, wrld) - self.qtable[state, ra])
 
+
+    # Pretty sure there is a problem here, with simulating next worlds.
     def getNextBestScore(self, state, wrld):
         actions = get_adjacent((self.x, self.y), wrld)
         keys = self.qtable.keys()
@@ -123,15 +126,17 @@ class QCharacter(CharacterEntity):
                 s = sim.next()  # updates simulated world
                 c = s[0].me(c)  # gives us character. this is a tuple, we want the board, not the list of elapsed events
 
+                print(s[0].grid)
+
                 # Check if game is over
                 if c is None:
                     print("Game can end!")
                     print(s[1][0])
                     for event in s[1]:
                         if event.tpe == Event.CHARACTER_KILLED_BY_MONSTER and event.character.name == self.name:
-                            return -100
+                            return -10
                         elif event.tpe == Event.CHARACTER_FOUND_EXIT and event.character.name == self.name:
-                            return 100
+                            return 10
                 else:
                     return reward(c, wrld)
 
@@ -311,9 +316,17 @@ def get_adjacent(current, wrld):
 
 def reward(c, wrld):
     dist = len(aStar((c.x, c.y), wrld, wrld.exitcell))
+    monster = closest_monster((c.x, c.y), wrld)
+    if monster <= 1:
+        return -1
+    if monster == 2:
+        return -0.5
+    if monster == 3:
+        return -0.25
     if dist == 0:
         return 1
-    return 1 / dist #- dist here is actually better than 1 / dist it seems?
+    else:
+        return 1 / dist #- dist here is actually better than 1 / dist it seems?
 
 def aStar(start, wrld, goal):
     x = start[0]
@@ -327,23 +340,24 @@ def aStar(start, wrld, goal):
     came_from[(x, y)] = None
     cost_so_far[(x, y)] = 0
 
-    monsters = []
-
     while not len(frontier) == 0:
         frontier.sort(key=lambda tup: tup[1])  # check that
         current = frontier.pop(0)
         if (current[0][0], current[0][1]) == goal:
             break
         for next in get_adjacent(current[0], wrld):
+            #print(next)
             if wrld.wall_at(next[0], next[1]):
                 cost_so_far[(next[0], next[1])] = 999
                 new_cost = 1000
             else:
-                new_cost = cost_to(current[0], next) + cost_so_far[current[0]]
+                # new_cost = cost_to(current[0], next) + cost_so_far[current[0]]
+                new_cost = 1 + cost_so_far[current[0]]
             if next not in cost_so_far or new_cost < cost_so_far[next]:
                 cost_so_far[next] = new_cost
                 frontier.append((next, new_cost + manhattan_distance(next[0], next[1], goal[0], goal[1])))
                 came_from[next] = current[0]
+
 
     cursor = goal
     path = []
@@ -352,5 +366,5 @@ def aStar(start, wrld, goal):
         try:
             cursor = came_from[cursor]
         except KeyError:
-            return 0, 0
+            return [(0, 0)]
     return path
