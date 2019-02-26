@@ -29,7 +29,7 @@ for line in f.readlines():
 
 f.close()
 
-for i in range(0, 100):
+for i in range(0, 50):
     # Create the game
     g = Game.fromfile('map.txt')
 

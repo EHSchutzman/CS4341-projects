@@ -24,10 +24,9 @@ class QCharacter(CharacterEntity):
         # Debugging elements
         self.tiles = {}
         self.qtable = qtable
-        self.wb = 1  # weight of bomb feature
-        self.wm = 1  # weight of monster feature
-        self.wd = 1  # weight of monster direction
-        self.wg = 1  # weight of goal direction
+        self.wb = -5  # weight of bomb feature
+        self.wm = -10  # weight of monster distance feature
+        self.wg = 2  # weight of goal distance
 
         # return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), monster_direction(coords, wrld), dist
 
@@ -51,7 +50,7 @@ class QCharacter(CharacterEntity):
 
             actions = self.valid_moves(wrld)
             for a in actions:
-                 self.setQ(state, a, wrld)
+                 self.approximateQ(state, a, wrld)
 
             move = self.select_best_move(state, actions, wrld)  #  path[len(path) - 1]
 
@@ -62,6 +61,15 @@ class QCharacter(CharacterEntity):
 
             print("MOVE:")
             print(move)
+
+            print("WEIGHTS:")
+            print(self.wb)
+            print(self.wm)
+            print(self.wg)
+
+            # The program is calculating the goal as a negatively weighted attribute?? WAIT that actually makes sense
+            # because distance to goal is negative.
+
             self.move(move[0], move[1])
             pass
 
@@ -74,18 +82,18 @@ class QCharacter(CharacterEntity):
             self.qtable[(state, ra)] = 0
 
         # Update weights of each feature
-        delta = (reward(self, wrld) + gamma * self.getNextBestScore(state, wrld) - self.qtable[state, ra])
+        delta = (reward(self, wrld) + gamma * self.getNextBestScore(state, wrld)) - self.qtable[state, ra]
         # First feature: distance to bomb
         self.wb = self.wb + alpha * delta * closest_bomb()
         # Second feature: distance to closest monster
         self.wm = self.wm + alpha * delta * closest_monster((self.x, self.y), wrld)
-        # # Third feature: direction of closest monster, DOESN'T ACTUALLY WORK BC NOT A SCALAR
-        # self.wd = self.wd + alpha * delta * monster_direction((self.x, self.y), wrld)
-        # Fourth monster: distance to exit
-        self.wd = self.wd + alpha * delta * distance_to_exit((self.x, self.y), wrld)
+        # Third feature: direction of closest monster, DOESN'T ACTUALLY WORK BC NOT A SCALAR
+
+        # Fourth feature: distance to exit
+        self.wg = self.wg + alpha * delta * distance_to_exit((self.x, self.y), wrld)
 
         self.qtable[(state, ra)] = self.wb * closest_bomb() + self.wm + closest_monster((self.x, self.y), wrld) +\
-            self.wd * distance_to_exit((self.x, self.y), wrld)
+            self.wg * distance_to_exit((self.x, self.y), wrld)
 
 
     def setQ(self, state, action, wrld):
@@ -154,7 +162,7 @@ class QCharacter(CharacterEntity):
 
     def threatened(self, wrld):
         # TODO Add a check for bombs as well
-        if closest_monster((self.x, self.y), wrld) <= 2:
+        if closest_monster((self.x, self.y), wrld) <= 3:
             return True
         return False
 
@@ -206,7 +214,7 @@ def calculate_state(coords, wrld):
     monster = closest_monster((coords[0], coords[1]), wrld)
     dist = distance_to_exit(coords, wrld)
     # TODO Add distance to wall??
-    return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), monster_direction(coords, wrld), dist
+    return closest_bomb(), closest_monster((coords[0], coords[1]), wrld), dist  # monster_direction(coords, wrld),
 
 # ==================== FEATURES ==================== #
 #   - Distance to closest bomb
@@ -236,7 +244,7 @@ def closest_monster(coords, wrld):
 def distance_to_exit(coords, wrld):
     dist = (len(aStar(coords, wrld, wrld.exitcell)) ** 2)
     if dist < 1:
-        return 0
+        return 1
     return 1 / dist
 
 def euclidean_distance(coords, wrld):
@@ -305,7 +313,7 @@ def reward(c, wrld):
     dist = len(aStar((c.x, c.y), wrld, wrld.exitcell))
     if dist == 0:
         return 1
-    return -dist #- dist here is actually better than 1 / dist it seems?
+    return 1 / dist #- dist here is actually better than 1 / dist it seems?
 
 def aStar(start, wrld, goal):
     x = start[0]
@@ -320,7 +328,6 @@ def aStar(start, wrld, goal):
     cost_so_far[(x, y)] = 0
 
     monsters = []
-
 
     while not len(frontier) == 0:
         frontier.sort(key=lambda tup: tup[1])  # check that
@@ -346,8 +353,4 @@ def aStar(start, wrld, goal):
             cursor = came_from[cursor]
         except KeyError:
             return 0, 0
-    #if draw:
-        #print("PATH: ")
-        #print(path)
-
     return path
