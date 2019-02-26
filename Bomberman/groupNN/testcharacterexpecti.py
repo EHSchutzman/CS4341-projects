@@ -15,36 +15,41 @@ class TestCharacterExpecti(CharacterEntity):
         pass
 
     def expectiMax(self, wrld, max_depth):
-        bestMove = []
-        moves = get_adjacent((self.x,self.y),wrld) 
+        moves = self.findWrld(wrld) 
+        maxVal = -10000
         for potential in moves:
-
-            return bestMove
+            new = self.expVal(potential[1], 4)
+            if new > maxVal:
+                maxVal = new
+        return maxVal[0]
 
     def expVal(self, wrld, max_depth):
+        if max_depth == 0 or (self.x,self.y) == wrld.exit_cell():
+            
+            return value
         value = 0
         prob = 0
-        if max_depth == 0 or (self.x,self.y) == wrld.exit_cell():
-            return value
-        actions = self.findWrld(wrld)
-        for a in actions:
+        possibleMoves = self.findWrld(wrld)
+        for a in possibleMoves:
             prob = self.probability()
-            value += prob * self.maxVal(a, max_depth)
+            value += prob * self.maxVal(a, max_depth -1)
+
 
     def maxVal(self, wrld, max_depth):
-        value = float("-inf")
         if max_depth == 0 or (self.x, self.y) == wrld.exit_cell():
             return value
-        actions = self.findWrld(wrld)
-        for a in actions:
+        value = float("-inf")
+        possibleMoves = self.findWrld(wrld)
+        for a in possibleMoves:
             value = max(value, self.expVal(a, max_depth -1))
-        return value
+
 
     def probability(self):
         prob = (1/8)
         return prob
 
     def findWrld(self,wrld):
+        possibleMoves = []
         moves = get_adjacent((self.x, self.y), wrld)
         for m in moves:
             if not wrld.wall_at(m[0], m[1]):
@@ -52,8 +57,12 @@ class TestCharacterExpecti(CharacterEntity):
                 c = sim.me(self)  # finds character from simulated world
                 c.move(m[0] - self.x, m[1] - self.y)  # moves character in simulated world
                 s = sim.next()  # updates simulated world
-                c = s[0].me(c)  # gives us character. this is a tuple, we want the board, not the list of elapsed events
-                return c
+                c = s[0].me(c)
+                possibleMoves.append((m, s))
+                  # gives us character. this is a tuple, we want the board, not the list of elapsed events
+                #m is the move (x,y) sim = new world (m, sim) ((x,y), world)
+        
+        return possibleMoves
 
 
     def manhattan_distance(self, x1, y1, x2, y2):
