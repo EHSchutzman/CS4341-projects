@@ -11,42 +11,48 @@ init(autoreset=True)
 class TestCharacterExpecti(CharacterEntity):
     def do(self, wrld):
         max_depth = 4
-        self.expectiMax(wrld, max_depth)
-        pass
+        bestMove = self.expectiMax(wrld, max_depth)
+        return bestMove[0]
 
     def expectiMax(self, wrld, max_depth):
         moves = self.findWrld(wrld) 
         maxVal = -10000
         for potential in moves:
-            new = self.expVal(potential[1], 4)
+            new = self.expVal(potential[1], max_depth)
             if new > maxVal:
                 maxVal = new
         return maxVal[0]
 
     def expVal(self, wrld, max_depth):
         if max_depth == 0 or (self.x,self.y) == wrld.exit_cell():
-            
-            return value
-        value = 0
-        prob = 0
-        possibleMoves = self.findWrld(wrld)
-        for a in possibleMoves:
-            prob = self.probability()
-            value += prob * self.maxVal(a, max_depth -1)
-
+            move = self.util(wrld)
+            return (move, None)
+        else:
+            (bestMove, value) = (None, 0)
+            possibleMoves = self.findWrld(wrld)
+            for a in possibleMoves:
+                prob = self.probability()
+                (bestMove, value) =(a, value + prob * self.maxVal(a[0], max_depth -1))
+        return (bestMove, value)
 
     def maxVal(self, wrld, max_depth):
         if max_depth == 0 or (self.x, self.y) == wrld.exit_cell():
-            return value
-        value = float("-inf")
-        possibleMoves = self.findWrld(wrld)
-        for a in possibleMoves:
-            value = max(value, self.expVal(a, max_depth -1))
-
+            move = self.util(wrld)
+            return (move, None)
+        else:
+            (bestMove, value) = (None, float("-inf"))
+            possibleMoves = self.findWrld(wrld)
+            for a in possibleMoves:
+                (bestMove, value) = (a, max(value, self.expVal(a[0], max_depth -1)))
+        return (bestMove, value)
 
     def probability(self):
         prob = (1/8)
         return prob
+    
+    def utility(self, wrld):
+        util = 0
+        return util
 
     def findWrld(self,wrld):
         possibleMoves = []
