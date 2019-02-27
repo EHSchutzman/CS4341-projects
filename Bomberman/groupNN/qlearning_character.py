@@ -110,13 +110,19 @@ class QCharacter(CharacterEntity):
         self.qtable[(state, action)] = self.qtable[(state, action)] + alpha * delta
 
     def r(self, wrld, action):
+        print("Monsters at: ")
+        print(monster_tiles(wrld))
         sim = SensedWorld.from_world(wrld)  # creates simulated world
         c = sim.me(self)  # finds our character in the simulated world
+        # Are monsters moving?????
         if action != "bomb":
             c.move(action[0], action[1])  # moves character in simulated world
         else:
             c.place_bomb()  # places bomb if that's what we decided to do
         sim = sim.next()  # updates simulated world
+
+        print("Simworld monsters at:")
+        print(monster_tiles(sim[0]))
         c = sim[0].me(c)  # finds our character in the simulated world
 
         if c is None:
@@ -217,7 +223,6 @@ class QCharacter(CharacterEntity):
 
 
     def select_best_move(self, state, moves, wrld):
-
         candidates = []
         # Construct table keys from possible moves and current state.
         for m in moves:

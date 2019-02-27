@@ -31,7 +31,7 @@ for line in f.readlines():
 
 f.close()
 
-for i in range(0, 100):
+for i in range(0, 2):
     w = open("weights.txt", "r")
     for line in w.readlines():
         line = line.rstrip()
