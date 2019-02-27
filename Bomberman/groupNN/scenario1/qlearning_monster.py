@@ -31,7 +31,7 @@ for line in f.readlines():
 
 f.close()
 
-for i in range(0, 50):
+for i in range(0, 100):
     w = open("weights.txt", "r")
     for line in w.readlines():
         line = line.rstrip()
@@ -59,6 +59,8 @@ for i in range(0, 50):
                         weights[1],  # wm
                         weights[2],  # wg
                         weights[3],  # ww
+                        weights[4],  # wcm
+                        weights[5],  # wcg
                                "Qlearn",  # name
                                 "Q",  # avatar
                                 0, 0  # position
@@ -69,12 +71,7 @@ for i in range(0, 50):
     print(g.world.events)
     print("G DONE::::::: " + str(g.done()))
     print((q.x, q.y))
-    if (q.x, q.y) == g.world.exitcell:
-        print("ESCAPED!")
-        q.qtable[calculate_state((q.x, q.y), g.world), q.last_action] = 10
-    else:
-        print("DIED!")
-        q.qtable[calculate_state((q.x, q.y), g.world), q.last_action] = -10
+
     w = open("weights.txt", "w")
     weights[0] = q.wb
     weights[1] = q.wm
