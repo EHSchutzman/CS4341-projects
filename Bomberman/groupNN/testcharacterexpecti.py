@@ -58,7 +58,7 @@ class TestCharacterExpecti(CharacterEntity):
         return prob
     
     def util(self, wrld):
-        util = 0
+        util = 1
         return util
 
     def findWrld(self,wrld):
